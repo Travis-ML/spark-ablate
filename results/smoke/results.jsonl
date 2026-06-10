@@ -1,0 +1,4 @@
+{"condition": "baseline", "nll": 4.511186408996582, "perplexity": 91.0297529885535, "tokens": 635}
+{"condition": "L0.mlp.mean", "specs": [{"kind": "mlp", "layer": 0, "heads": [], "mode": "mean"}], "nll": 11.4443208694458, "perplexity": 93369.57945946322, "tokens": 635, "delta_nll": 6.933134460449218, "delta_perplexity": 93278.54970647466, "seconds": 5.28}
+{"condition": "L5.mlp.mean", "specs": [{"kind": "mlp", "layer": 5, "heads": [], "mode": "mean"}], "nll": 4.594920444488525, "perplexity": 98.98026080915805, "tokens": 635, "delta_nll": 0.08373403549194336, "delta_perplexity": 7.950507820604557, "seconds": 29.48}
+{"condition": "L10.mlp.mean", "specs": [{"kind": "mlp", "layer": 10, "heads": [], "mode": "mean"}], "nll": 4.909177303314209, "perplexity": 135.52787020158476, "tokens": 635, "delta_nll": 0.39799089431762713, "delta_perplexity": 44.498117213031264, "seconds": 3.71}

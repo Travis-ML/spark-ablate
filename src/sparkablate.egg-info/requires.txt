@@ -1,0 +1,13 @@
+torch>=2.4
+transformers>=4.45
+pyyaml>=6.0
+numpy>=1.26
+
+[datasets]
+datasets>=2.20
+
+[dev]
+pytest>=8.0
+
+[plots]
+matplotlib>=3.8

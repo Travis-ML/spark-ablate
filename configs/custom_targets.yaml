@@ -1,0 +1,24 @@
+# Targeted multi-component conditions, one condition per entry.
+model:
+  name: Qwen/Qwen2.5-7B
+  dtype: bfloat16
+  device: auto
+
+eval:
+  dataset: wikitext
+  seq_len: 1024
+  batch_size: 4
+  max_batches: 16
+  calibration_batches: 8
+
+ablation:
+  mode: mean
+  sweep: custom
+  targets:
+    - {kind: head, layer: 14, heads: [3, 7]}
+    - {kind: mlp,  layer: 20}
+    - {kind: attn, layer: 9,  mode: zero}
+    - {kind: layer, layer: 26}
+
+output:
+  dir: results/qwen25-7b-targets

@@ -1,0 +1,21 @@
+# Fast end-to-end smoke test with a small model — runs on CPU in a few
+# minutes, on the Spark in seconds. Good first run to validate the install.
+model:
+  name: HuggingFaceTB/SmolLM2-135M
+  dtype: float32
+  device: auto
+
+eval:
+  dataset: data/smoke.txt
+  seq_len: 128
+  batch_size: 2
+  max_batches: 3
+  calibration_batches: 2
+
+ablation:
+  mode: mean
+  sweep: mlp
+  layers: [0, 5, 10]
+
+output:
+  dir: results/smoke

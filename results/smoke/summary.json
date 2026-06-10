@@ -1,0 +1,10 @@
+{
+  "model": "HuggingFaceTB/SmolLM2-135M",
+  "baseline": {
+    "nll": 4.511186408996582,
+    "perplexity": 91.0297529885535,
+    "tokens": 635
+  },
+  "conditions": 3,
+  "results": "results/smoke\\results.jsonl"
+}

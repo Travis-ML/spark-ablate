@@ -1,0 +1,18 @@
+# Skip each decoder layer in turn and measure perplexity impact.
+model:
+  name: meta-llama/Llama-3.1-8B
+  dtype: bfloat16
+  device: auto
+
+eval:
+  dataset: wikitext     # or a path to any .txt file
+  seq_len: 1024
+  batch_size: 4
+  max_batches: 16
+
+ablation:
+  sweep: layers
+  layers: all
+
+output:
+  dir: results/llama31-8b-layer-sweep

@@ -1,0 +1,22 @@
+# Mean-ablate every attention head individually across selected layers.
+# Mean ablation patches in calibration-set average activations instead of
+# zeros, which is the better-behaved intervention for head-level analysis.
+model:
+  name: meta-llama/Llama-3.1-8B
+  dtype: bfloat16
+  device: auto
+
+eval:
+  dataset: wikitext
+  seq_len: 1024
+  batch_size: 4
+  max_batches: 8
+  calibration_batches: 8
+
+ablation:
+  mode: mean
+  sweep: heads
+  layers: [0, 4, 8, 12, 16, 20, 24, 28, 31]
+
+output:
+  dir: results/llama31-8b-head-sweep
