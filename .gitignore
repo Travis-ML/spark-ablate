@@ -2,3 +2,4 @@
 .env
 .pytest_cache/
 .claude
+src/sparkablate/__pycache__/
