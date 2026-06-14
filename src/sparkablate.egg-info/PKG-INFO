@@ -94,6 +94,51 @@ incrementally so long sweeps are interrupt-safe) plus `summary.json`.
 `ablate report` prints conditions ranked by Δ NLL and renders plots
 (bar chart per layer for layer/mlp/attn sweeps, heatmap for head sweeps).
 
+## Baking a usable model
+
+The sweeps above *measure* importance with temporary hooks. `ablate bake` instead
+writes the chosen intervention **permanently into the weights** and saves a
+standalone Hugging Face checkpoint — no hooks, no custom modeling code — that
+loads directly in `transformers`, **vLLM**, and TGI:
+
+```bash
+# Abliteration: bake a refusal direction out of every residual write.
+ablate bake -m meta-llama/Llama-3.1-8B \
+    --direction results/refusal/direction.pt --op project_out \
+    --out models/llama31-8b-abliterated
+
+# Knock out components permanently (zero ablation):
+ablate bake -m meta-llama/Llama-3.1-8B --kind head --layer 14 --heads 3 7 \
+    --out models/llama31-8b-noL14h3h7
+
+# From a config (applies ablation.targets + ablation.directions jointly):
+ablate bake -c configs/custom_targets.yaml --out models/baked
+```
+
+Each run writes the checkpoint plus `sparkablate_bake.json` (provenance: base
+model, interventions, direction sha256s) and a `README.md` model card.
+
+**What bakes (all exact, no new parameters, stock-loadable):**
+
+| kind                       | weight edit                                                       |
+|----------------------------|-------------------------------------------------------------------|
+| `head` / `attn` / `mlp` zero | zero the writing projection's relevant weights (+ bias if any)   |
+| `layer` skip               | zero `o_proj`+`down_proj` → identity layer (`--prune-layers` deletes it) |
+| `direction` `project_out`  | orthogonalize embedding + every `o_proj`/`down_proj` against v̂   |
+
+Notes and current limits:
+
+- **Precision:** bake in `float32` (the default for `bake`); baking directional
+  ablation from a half precision can leave a faint residual along the direction.
+- **Mean mode is not bakeable.** A constant output needs a bias on
+  `o_proj`/`down_proj`, which LLaMA/Mistral/Qwen lack and vLLM/GGUF loaders drop.
+  Use mean mode as a runtime hook (`ablate run` / `compare`).
+- **`direction` bakes only with `layers: all`** (subset projection is
+  path-dependent — no static weight equivalent).
+- **LM Studio (GGUF):** the checkpoint is safetensors. Convert with llama.cpp —
+  `ablate bake` prints and records the exact
+  `python convert_hf_to_gguf.py <out_dir> --outfile model.gguf` command.
+
 ## Config reference
 
 ```yaml

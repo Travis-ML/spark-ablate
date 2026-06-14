@@ -90,6 +90,26 @@ def test_diff_of_means_unit_norm():
         diff_of_means(a, CaptureResult({("L1", -1): torch.randn(8, HIDDEN)}))
 
 
+def test_diff_of_means_skips_degenerate_site():
+    """A site identical across sets (e.g. emb @ a shared template token) is dropped,
+    not fatal, as long as some other site differs."""
+    shared = torch.randn(8, HIDDEN)
+    pos = CaptureResult({("emb", -1): shared, ("L1", -1): torch.randn(8, HIDDEN)})
+    neg = CaptureResult({("emb", -1): shared.clone(), ("L1", -1): torch.randn(8, HIDDEN)})
+    with pytest.warns(UserWarning, match="zero difference-of-means"):
+        d = diff_of_means(pos, neg)
+    assert ("emb", -1) not in d
+    assert ("L1", -1) in d
+
+
+def test_diff_of_means_all_degenerate_raises():
+    shared = torch.randn(8, HIDDEN)
+    pos = CaptureResult({("L0", -1): shared})
+    neg = CaptureResult({("L0", -1): shared.clone()})
+    with pytest.raises(ValueError, match="identical at the captured position"):
+        diff_of_means(pos, neg)
+
+
 def test_candidate_keys_excludes_late_layers():
     dirs = {(f"L{i}", -1): torch.ones(4) for i in range(10)}
     dirs[("emb", -1)] = torch.ones(4)

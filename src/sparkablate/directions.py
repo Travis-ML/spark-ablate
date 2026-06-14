@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+import warnings
 from dataclasses import dataclass, field
 
 import torch
@@ -24,12 +25,27 @@ def diff_of_means(pos: CaptureResult, neg: CaptureResult) -> dict[tuple[str, int
     if set(pos.activations) != set(neg.activations):
         raise ValueError("contrastive captures cover different (layer, position) keys")
     out = {}
+    degenerate = []
     for key in pos.activations:
         d = pos[key].mean(dim=0) - neg[key].mean(dim=0)
         norm = d.norm()
         if norm == 0:
-            raise ValueError(f"zero difference-of-means at {key}; prompt sets identical?")
+            degenerate.append(key)  # e.g. emb @ a shared chat-template suffix token
+            continue
         out[key] = d / norm
+    if degenerate:
+        warnings.warn(
+            f"dropping {len(degenerate)} site(s) with zero difference-of-means "
+            f"{degenerate}: at the embedding this is expected when chat-templated "
+            "prompts share a fixed token at the captured position (the raw token "
+            "embedding is identical, since the embedding does no context mixing).",
+            stacklevel=2,
+        )
+    if not out:
+        raise ValueError(
+            "every capture site had a zero difference-of-means; the harmful and "
+            "harmless prompt sets appear identical at the captured position(s)."
+        )
     return out
 
 

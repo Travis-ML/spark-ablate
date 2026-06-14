@@ -1,0 +1,21 @@
+model:
+  name: google/gemma-3-1b-it
+  dtype: bfloat16
+  device: auto
+
+eval:
+  batch_size: 32           # 1B model — push to 64+ on the Spark's 128 GB if memory allows
+  max_new_tokens: 64
+  chat_template: true        # instruct model → wrap prompts in the chat format
+
+direction:
+  harmful_prompts:  data/harmful_sample.txt
+  harmless_prompts: data/harmless_sample.txt
+  positions: [-1]            # last token; the standard choice (try [-1,-5] to widen)
+  val_fraction: 0.2          # held-out split for scoring
+  layer_fraction: 0.8        # auto-skip the last ~20% of layers (they overfit)
+  nll_guard: 0.5             # reject directions that wreck harmless fluency
+
+output:
+  dir: results/gemma3-1b-refusal
+
