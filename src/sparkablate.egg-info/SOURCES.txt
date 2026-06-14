@@ -1,8 +1,11 @@
 README.md
 pyproject.toml
 src/sparkablate/__init__.py
+src/sparkablate/bake.py
+src/sparkablate/capture.py
 src/sparkablate/cli.py
 src/sparkablate/config.py
+src/sparkablate/directions.py
 src/sparkablate/eval.py
 src/sparkablate/hooks.py
 src/sparkablate/model.py
@@ -15,4 +18,7 @@ src/sparkablate.egg-info/entry_points.txt
 src/sparkablate.egg-info/requires.txt
 src/sparkablate.egg-info/top_level.txt
 tests/test_ablation.py
+tests/test_bake.py
+tests/test_directions.py
+tests/test_families.py
 tests/test_runner.py

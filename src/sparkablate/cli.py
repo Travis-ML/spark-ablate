@@ -43,6 +43,28 @@ def main(argv: list[str] | None = None) -> int:
     find.add_argument("-c", "--config", required=True, help="path to experiment YAML "
                       "with a 'direction' section")
 
+    bake = sub.add_parser(
+        "bake",
+        help="bake an intervention into the weights and write a standalone HF checkpoint",
+    )
+    bake.add_argument("-c", "--config", help="experiment YAML (uses ablation.targets "
+                      "and ablation.directions; applied jointly)")
+    bake.add_argument("-m", "--model", help="model id (overrides config; required without -c)")
+    bake.add_argument("-o", "--out", required=True, help="output checkpoint directory")
+    bake.add_argument("--kind", choices=["head", "attn", "mlp", "layer"])
+    bake.add_argument("--layer", type=int)
+    bake.add_argument("--heads", type=int, nargs="*", default=[])
+    bake.add_argument("--direction", help="path to a direction artifact (.pt)")
+    bake.add_argument("--op", choices=["project_out"], default="project_out")
+    bake.add_argument("--coefficient", type=float, default=1.0)
+    bake.add_argument("--prune-layers", action="store_true",
+                      help="physically delete layers skipped via --kind layer "
+                      "(default: zero them in place, keeping the topology)")
+    bake.add_argument("--dtype", default="float32",
+                      help="precision to bake/save in (default: float32, recommended)")
+    bake.add_argument("--device", default="cpu")
+    bake.add_argument("--trust-remote-code", action="store_true")
+
     rep = sub.add_parser("report", help="print ranked results and write plots")
     rep.add_argument("results_dir")
     rep.add_argument("--top", type=int, default=25)
@@ -100,6 +122,51 @@ def main(argv: list[str] | None = None) -> int:
         cfg = ExperimentConfig.from_yaml(args.config)
         summary = run_find_direction(cfg)
         print(f"done: {summary['candidates']} candidates -> {summary['artifact']}")
+        return 0
+
+    if args.command == "bake":
+        from sparkablate.hooks import AblationSpec, DirectionSpec
+        from sparkablate.runner import bake_checkpoint
+
+        model_name = args.model
+        specs: list = []
+        if args.config:
+            from sparkablate.config import ExperimentConfig
+
+            cfg = ExperimentConfig.from_yaml(args.config)
+            model_name = args.model or cfg.model.name
+            ab = cfg.ablation
+            if ab.sweep != "custom" and not ab.directions:
+                p.error("bake from a config needs ablation.sweep: custom (explicit "
+                        "targets) and/or a 'directions' list")
+            for t in ab.targets:
+                specs.append(AblationSpec(kind=t["kind"], layer=t["layer"],
+                                          heads=tuple(t.get("heads", ())),
+                                          mode=t.get("mode", ab.mode)))
+            for d in ab.directions:
+                specs.append(DirectionSpec(
+                    op=d.get("op", "project_out"),
+                    coefficient=d.get("coefficient", 1.0),
+                    layers="all" if d.get("layers", "all") == "all" else tuple(d["layers"]),
+                    vector_path=d["path"],
+                ))
+        else:
+            if not model_name:
+                p.error("bake needs -m/--model (or -c/--config)")
+            if args.kind:
+                if args.layer is None:
+                    p.error("--kind requires --layer")
+                specs.append(AblationSpec(kind=args.kind, layer=args.layer,
+                                          heads=tuple(args.heads)))
+            if args.direction:
+                specs.append(DirectionSpec(op=args.op, coefficient=args.coefficient,
+                                           layers="all", vector_path=args.direction))
+        if not specs:
+            p.error("bake needs --kind and/or --direction (or a config with targets)")
+
+        bake_checkpoint(model_name, specs, args.out, dtype=args.dtype,
+                        device=args.device, trust_remote_code=args.trust_remote_code,
+                        prune_layers=args.prune_layers)
         return 0
 
     if args.command == "introspect":

@@ -27,6 +27,9 @@ from torch import nn
 ATTN_NAMES = ("self_attn", "attn", "attention", "self_attention")
 MLP_NAMES = ("mlp", "feed_forward", "ffn", "block_sparse_moe")
 OPROJ_NAMES = ("o_proj", "out_proj", "c_proj", "dense", "wo")
+# the MLP's output projection (the matrix that writes the block's output back to
+# the residual stream); used by weight baking, not by the runtime hooks.
+DOWN_PROJ_NAMES = ("down_proj", "c_proj", "w2", "fc2", "dense_4h_to_h", "wo")
 LAYER_CONTAINER_PATHS = (
     "model.layers",
     "transformer.h",
@@ -103,6 +106,9 @@ class LayerHandles:
     attn: nn.Module
     mlp: nn.Module
     o_proj: nn.Module
+    # the MLP's output projection, when resolvable (None for MoE blocks that
+    # have no single down-projection). Used by weight baking, not the hooks.
+    down_proj: nn.Module | None = None
 
 
 @dataclass
@@ -222,7 +228,11 @@ def introspect(model: nn.Module, strict: bool = True) -> ArchInfo:
                 f"projection; its children are {_child_names(attn)}. Add the right "
                 "name to OPROJ_NAMES in sparkablate/hooks.py."
             )
-        layers.append(LayerHandles(layer=layer, attn=attn, mlp=mlp, o_proj=o_proj))
+        # The MLP output projection is optional (MoE blocks have none); the hooks
+        # never use it, so a miss here is not fatal — only baking requires it.
+        down_proj, _ = _find_child(mlp, DOWN_PROJ_NAMES)
+        layers.append(LayerHandles(layer=layer, attn=attn, mlp=mlp, o_proj=o_proj,
+                                   down_proj=down_proj))
 
     cfg = model.config
     num_heads = cfg.num_attention_heads

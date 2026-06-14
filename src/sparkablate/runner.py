@@ -390,3 +390,35 @@ def compare_generations(model_name: str, specs: list, prompt: str,
     label = "+".join(s.label() for s in specs)
     log(f"--- baseline ---\n{baseline}\n--- ablated ({label}) ---\n{ablated}")
     return {"prompt": prompt, "baseline": baseline, "ablated": ablated, "specs": label}
+
+
+def bake_checkpoint(model_name: str, specs: list, out_dir: str, *,
+                    dtype: str = "float32", device: str = "cpu",
+                    trust_remote_code: bool = False, prune_layers: bool = False,
+                    log=print) -> dict:
+    """Bake ``specs`` into the model's weights and write a standalone checkpoint.
+
+    Produces a stock Hugging Face checkpoint (no hooks, no custom code) usable by
+    transformers / vLLM / TGI, plus provenance metadata and a GGUF conversion
+    command for LM Studio. ``specs`` is a flat list of AblationSpec/DirectionSpec.
+    """
+    from sparkablate.bake import bake_specs, save_baked
+    from sparkablate.hooks import introspect
+
+    if dtype != "float32":
+        log("WARNING: baking from a half precision can leave a faint residual for "
+            "directional ablation; --dtype float32 is recommended.")
+    log(f"Loading model {model_name} (dtype={dtype}, device={device}) ...")
+    model, tokenizer = load_model(model_name, dtype=dtype, device=device,
+                                  trust_remote_code=trust_remote_code)
+    arch = introspect(model, strict=True)
+    log(f"Architecture: {arch.num_layers} layers, {arch.num_heads} heads, "
+        f"head_dim {arch.head_dim}")
+
+    label = "+".join(s.label() for s in specs)
+    log(f"Baking: {label}")
+    baked = bake_specs(model, arch, specs, prune_layers=prune_layers)
+
+    return save_baked(model, tokenizer, out_dir, base_model=model_name,
+                      interventions=baked["interventions"], dtype=dtype,
+                      pruned_layers=baked["pruned_layers"], log=log)
